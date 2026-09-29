@@ -9,7 +9,7 @@ sys.path.insert(0, str(next(p for p in Path(__file__).resolve().parents if (p / 
 
 from src import storage
 from src.auth import require_interviewer, require_user
-from src.services import interviewer_rows, latest_submission, queue_test_run, responses, section_times, submissions
+from src.services import interviewer_rows, latest_submission, queue_test_run, reset_assessment_timer, responses, section_times, submissions
 
 
 st.set_page_config(page_title="Interviewer", layout="wide")
@@ -24,6 +24,24 @@ ids = [r["id"] for r in rows]
 selected = st.selectbox("Candidate assessment", ids, format_func=lambda x: next(r["candidate"] for r in rows if r["id"] == x)) if ids else None
 
 if selected:
+    selected_row = next(row for row in rows if row["id"] == selected)
+    with st.expander("Reset assessment timer"):
+        can_reset = selected_row["state"] in {"IN_PROGRESS", "EXPIRED"}
+        if can_reset:
+            st.warning("This starts a fresh full-duration timer. Saved answers, section times, and uploaded ZIPs are kept.")
+            reason = st.text_input("Reason for reset", key=f"timer_reset_reason_{selected}")
+            confirmed = st.checkbox("Confirm timer reset", key=f"timer_reset_confirm_{selected}")
+            if st.button("Restart timer", disabled=not reason.strip() or not confirmed):
+                try:
+                    reset_assessment_timer(conn, selected, reason)
+                    st.success("Timer restarted.")
+                    st.session_state.pop(f"timer_reset_confirm_{selected}", None)
+                    st.rerun()
+                except (PermissionError, ValueError) as exc:
+                    st.error(str(exc))
+        else:
+            st.info("Timer reset is available only for in-progress or expired assessments. Submitted assessments remain locked.")
+
     st.subheader("Assessment responses")
     times = section_times(conn, selected)
     if times:
@@ -48,6 +66,15 @@ if selected:
             file_name=latest["original_filename"],
             mime="application/zip",
         )
+        selected_state = next(row["state"] for row in rows if row["id"] == selected)
+        if selected_state == "SUBMITTED":
+            record_key = latest["object_key"].rsplit(".", 1)[0] + ".json"
+            st.download_button(
+                "Download assessment record",
+                data=storage.read_bytes(record_key),
+                file_name=f"{selected}_assessment_record.json",
+                mime="application/json",
+            )
         if st.button("Queue hidden tests"):
             run = queue_test_run(conn, latest["id"])
             st.info(f"Recorded as {run['state']}; no test runner is configured yet ({run['id']}).")

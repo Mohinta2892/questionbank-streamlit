@@ -5,6 +5,7 @@ __pycache__/
 *.pyc
 .streamlit/secrets.toml
 candidate_credentials.csv
+candidate_credentials.xlsx
 
 # Local runtime data and generated artifacts.
 /data/

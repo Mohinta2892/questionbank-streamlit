@@ -158,6 +158,40 @@ def reset_candidate_attempt(conn: sqlite3.Connection, user_id: str) -> None:
     conn.commit()
 
 
+def reset_assessment_timer(conn: sqlite3.Connection, ca_id: str, reason: str) -> None:
+    reason = reason.strip()
+    if not reason:
+        raise ValueError("Enter a reason for resetting the timer")
+    row = conn.execute(
+        """
+        SELECT ca.state, ca.started_at, ca.expires_at, a.duration_minutes
+        FROM candidate_assessments ca JOIN assessments a ON a.id = ca.assessment_id
+        WHERE ca.id = ?
+        """,
+        (ca_id,),
+    ).fetchone()
+    if not row or row["state"] not in {"IN_PROGRESS", "EXPIRED"}:
+        raise PermissionError("Only in-progress or expired assessments can have their timer reset")
+
+    started = datetime.now(timezone.utc)
+    expires = started + timedelta(minutes=row["duration_minutes"])
+    conn.execute(
+        "UPDATE candidate_assessments SET state = 'IN_PROGRESS', started_at = ?, expires_at = ? WHERE id = ?",
+        (started.isoformat(timespec="seconds"), expires.isoformat(timespec="seconds"), ca_id),
+    )
+    record(
+        conn,
+        ca_id,
+        "assessment_timer_reset",
+        reason=reason,
+        previous_started_at=row["started_at"],
+        previous_expires_at=row["expires_at"],
+        new_started_at=started.isoformat(timespec="seconds"),
+        new_expires_at=expires.isoformat(timespec="seconds"),
+    )
+    conn.commit()
+
+
 def upload_submission(conn: sqlite3.Connection, ca_id: str, filename: str, data: bytes) -> sqlite3.Row:
     assert_writable(conn, ca_id)
     if not filename.lower().endswith(".zip") or not zipfile.is_zipfile(BytesIO(data)):
@@ -184,13 +218,49 @@ def upload_submission(conn: sqlite3.Connection, ca_id: str, filename: str, data:
 
 def submit_assessment(conn: sqlite3.Connection, ca_id: str) -> None:
     assert_writable(conn, ca_id)
-    if not latest_submission(conn, ca_id):
+    submission = latest_submission(conn, ca_id)
+    if not submission:
         raise ValueError("Upload a final ZIP before submitting")
+    submitted_at = utc_now()
     conn.execute(
         "UPDATE candidate_assessments SET state = 'SUBMITTED', submitted_at = ? WHERE id = ?",
-        (utc_now(), ca_id),
+        (submitted_at, ca_id),
     )
     record(conn, ca_id, "assessment_submitted")
+
+    assessment = conn.execute(
+        """
+        SELECT ca.id assessment_id, ca.variant_id, ca.state, ca.started_at, ca.expires_at,
+               ca.submitted_at, a.name assessment_name, a.version assessment_version,
+               a.duration_minutes, u.email candidate_email, u.display_name candidate_name
+        FROM candidate_assessments ca
+        JOIN assessments a ON a.id = ca.assessment_id
+        JOIN users u ON u.id = ca.user_id
+        WHERE ca.id = ?
+        """,
+        (ca_id,),
+    ).fetchone()
+    snapshot = {
+        "assessment": dict(assessment),
+        "responses": [dict(row) for row in conn.execute(
+            "SELECT section, response, updated_at FROM written_responses WHERE candidate_assessment_id = ? ORDER BY section",
+            (ca_id,),
+        )],
+        "section_time": [dict(row) for row in conn.execute(
+            "SELECT section, seconds, updated_at FROM section_time WHERE candidate_assessment_id = ? ORDER BY section",
+            (ca_id,),
+        )],
+        "submissions": [dict(row) for row in conn.execute(
+            "SELECT id, original_filename, sha256, byte_size, uploaded_at, is_final FROM submissions WHERE candidate_assessment_id = ? ORDER BY uploaded_at",
+            (ca_id,),
+        )],
+        "audit_events": [dict(row) for row in conn.execute(
+            "SELECT event_type, event_time, metadata FROM audit_events WHERE candidate_assessment_id = ? ORDER BY id",
+            (ca_id,),
+        )],
+    }
+    record_key = submission["object_key"].rsplit(".", 1)[0] + ".json"
+    storage.save_bytes(record_key, json.dumps(snapshot, indent=2, sort_keys=True).encode("utf-8"))
     conn.commit()
 
 
