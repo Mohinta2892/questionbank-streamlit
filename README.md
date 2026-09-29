@@ -12,7 +12,7 @@ APP_ENV=development python -m src.seed
 APP_ENV=development streamlit run app/Home.py
 ```
 
-Development auth is available only when `APP_ENV=development`. Production uses Streamlit OIDC (`st.login`, `st.user`) and then checks the local allowlist in `users`.
+Development auth is available only when `APP_ENV=development`. Production uses password login by default and stores salted password hashes in SQLite. Set `AUTH_MODE=oidc` if you want Streamlit OIDC instead.
 
 Do not run `python -m src.seed` against production data; it creates local demo users only.
 
@@ -26,12 +26,15 @@ Seed users:
 
 ## Configuration
 
-- `APP_ENV`: `development` enables the local auth selector. Anything else fails closed behind OIDC.
+- `APP_ENV`: `development` enables the local auth selector. Anything else uses `AUTH_MODE`.
+- `AUTH_MODE`: `password` or `oidc`. Defaults to `password`.
 - `DB_PATH`: sqlite database path. Defaults to `data/app.sqlite3`.
 - `STORAGE_BACKEND`: `local` or `s3`.
 - `STORAGE_DIR`: local object store directory.
 - `S3_BUCKET`, `S3_ENDPOINT_URL`: S3-compatible object storage settings.
 - `MAX_UPLOAD_MB`: final ZIP size limit.
+- `INTERVIEWERS`, `CANDIDATES`: comma-separated `Name <email>` rows to seed production users.
+- `USER_PASSWORDS`: comma-separated `email=password` values for password auth.
 
 ## Workflow
 

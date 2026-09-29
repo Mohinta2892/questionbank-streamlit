@@ -28,11 +28,11 @@ def seed() -> None:
     assessment_id = str(uuid.uuid4())
 
     conn.executemany(
-        "INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO users (id, email, display_name, role, password_hash, active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
         [
-            (interviewer_id, "interviewer@example.com", "Ivy Interviewer", "interviewer", 1, now),
-            (candidate_ids[0], "candidate1@example.com", "Casey Candidate", "candidate", 1, now),
-            (candidate_ids[1], "candidate2@example.com", "Riley Candidate", "candidate", 1, now),
+            (interviewer_id, "interviewer@example.com", "Ivy Interviewer", "interviewer", None, 1, now),
+            (candidate_ids[0], "candidate1@example.com", "Casey Candidate", "candidate", None, 1, now),
+            (candidate_ids[1], "candidate2@example.com", "Riley Candidate", "candidate", None, 1, now),
         ],
     )
     conn.execute(

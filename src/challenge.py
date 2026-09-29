@@ -32,6 +32,16 @@ def starter_zip(conn, candidate_assessment) -> bytes:
                 indent=2,
             ),
         )
+        zf.writestr(
+            "segmentation_v1/SECTION_A_CODE_REVIEW.md",
+            "# Section A: Code Review\n\n"
+            "Explain what this code is doing. Identify the three issues you would prioritise "
+            "before running it across a 20 TB dataset. Choose one issue and describe or "
+            "implement how you would fix it.\n\n"
+            "```python\n"
+            f"{code_review_fixture()}"
+            "\n```\n",
+        )
     return buf.getvalue()
 
 

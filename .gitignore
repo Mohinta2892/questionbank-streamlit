@@ -3,9 +3,11 @@ __pycache__/
 .venv/
 .DS_Store
 *.pyc
+.streamlit/secrets.toml
+candidate_credentials.csv
 
 # Local runtime data and generated artifacts.
-data/
+/data/
 *.sqlite3
 *.db
 
@@ -22,7 +24,7 @@ DEPLOYMENT.md
 # Dev-only files not needed by Streamlit Community Cloud.
 docker-compose.yml
 runner/
-tests/
+/tests/
 
 # Private tests and candidate-generated outputs.
 challenges/segmentation_v1/hidden/
