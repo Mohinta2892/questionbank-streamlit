@@ -1,0 +1,32 @@
+__pycache__/
+.pytest_cache/
+.venv/
+.DS_Store
+*.pyc
+
+# Local runtime data and generated artifacts.
+data/
+*.sqlite3
+*.db
+
+# Private interviewer/planning material.
+JD/
+answers.md
+interviewer_answers.ipynb
+interviewer_*.py
+commands.md
+codex_implementation_plan.md
+scripts/make_candidate_cremi_crop.py
+DEPLOYMENT.md
+
+# Dev-only files not needed by Streamlit Community Cloud.
+docker-compose.yml
+runner/
+tests/
+
+# Private tests and candidate-generated outputs.
+challenges/segmentation_v1/hidden/
+challenges/segmentation_v1/candidate/data/*.npy
+challenges/segmentation_v1/candidate/data/cremi_cache/
+challenges/segmentation_v1/candidate/outputs/
+challenges/segmentation_v1/candidate/.pytest_cache/
